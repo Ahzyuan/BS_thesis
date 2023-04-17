@@ -25,6 +25,6 @@
   - 若想体验后续GUI中的在线标定功能，可下载Main/camera_calibration/img_dir中链接，将下载图片放在img_dir文件夹即可。注意图片由本人拍摄，请勿上传网络。
 5. 对于Main文件夹：
   - 保持Main下的文件目录，不要删除任何一个文件及或移动到其他地方。
-  - 需要根据本地路径，修改Main/__init__.py、Main/models/__init__.py、Main/utils/__init__.py内路径，否则GUI无法调用YoLoV5。
+  - 需要根据本地路径，修改Main/\_\_init\_\_.py、Main/models/\_\_init\_\_.py、Main/utils/\_\_init\_\_.py内路径，否则GUI无法调用YoLoV5。
 6. 在项目根目录下，运行主程序gui.py即可，各种按钮与设置可自行体验。
 7. 需要说明的是，在GUI中首次加载YoLoV5模型会稍微卡顿，请耐心等待，之后再次调用就会流畅了。
