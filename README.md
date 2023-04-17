@@ -19,7 +19,7 @@
   - 针对无训练条件或意向者，本研究提供了imgsz=320、480、640及1088的训练权重，其中480、640效果已经较好，可以直接加载至模型进行目标检测。
   - 针对想自己训练YoLoV5者：
     - 可在yolov5/TPZ_VOCdevkit中下载已随机二八划分好的数据集；或在Dataset/pick_img中下载原始图片，结合Dataset/labels标注，利用Dataset/yolo_dataset_generator.py产生随机二八划分的数据集
-    - 按照https://blog.csdn.net/didiaopao/article/details/119954291中配置YoLoV5训练脚本，进行训练即可。
+    - 按照 https://blog.csdn.net/didiaopao/article/details/119954291 配置YoLoV5训练脚本，进行训练即可。
 4. __对于相机内参矩阵：__
   - 本项目以提供标定好的文件，为Main/camera_calibration/intri_mat.npy
   - 若想体验后续GUI中的在线标定功能，可下载Main/camera_calibration/img_dir中链接，将下载图片放在img_dir文件夹即可。注意图片由本人拍摄，请勿上传网络。
