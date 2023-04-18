@@ -14,7 +14,7 @@
 ## 2. 项目部署
 
 1. __下载项目压缩包至本地__
-2. __安装python依赖：__pip install -r requirements.txt 
+2. __安装python依赖：__ pip install -r requirements.txt 
 3. __对于YoLoV5：__
   - 针对无训练条件或意向者，本研究提供了imgsz=320、480、640及1088的训练权重，其中480、640效果已经较好，可以直接加载至模型进行目标检测。
   - 针对想自己训练YoLoV5者：
