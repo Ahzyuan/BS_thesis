@@ -1,10 +1,11 @@
-import os,cv2
+import os,cv2,sys
 from glob import glob
 from tqdm import tqdm
 
-img_dir=r'Dataset\pick_img'
-label_dir=r'Dataset\labels'
-save_dir=r'Dataset\labeled_imgs'
+pwd = sys.path[0]
+img_dir = os.path.join(pwd, 'pick_img')
+label_dir = os.path.join(pwd, 'labels')
+save_dir = os.path.join(pwd, 'labeled_imgs')
 
 img_list=glob(img_dir+'\\*')
 

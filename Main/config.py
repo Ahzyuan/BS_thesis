@@ -10,8 +10,14 @@ config={
     },
 
     'gui_info':{
-      'gui_title':'基于YoLoV5的车辆自动礼让行人算法 (by 黄子源)',
+      'gui_title':'基于多目标检测与跟踪的车辆自动礼让行人算法研究与应用 (by 黄子源 姚志强)',
       'gui_w':'1300',
-      'gui_h':'600'
+      'gui_h':'600',
+      'font_color':{   #the color of the font which shows the obj's distance
+            'R':'#C00000',
+            'G':'#00A44A',
+            'B':'#000000',
+            'Y':'#EEC600'
+        }
     }
 }

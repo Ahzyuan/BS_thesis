@@ -1,7 +1,0 @@
-链接：https://pan.baidu.com/s/1IuTntGW9fI_1LCnCbOHaUw?pwd=itgx 
-提取码：itgx
-
-注：
-请将整个文件夹的文件下载，其为分卷压缩文件
-而后在windows可在.zip文件上右键解压；
-在Linux终端，输入zip -F 文件名.zip --out （自定义）.zip，然后解压（自定义）.zip即可。

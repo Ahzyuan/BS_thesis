@@ -1,9 +1,11 @@
-import cv2
+import cv2,sys,os
 from glob import glob
 import numpy as np
 
-scene_path=r'E:\AIL\project\Undergraduate_Thesis\Dataset\pick_snapshot'
-save_path=r'E:\AIL\project\Undergraduate_Thesis\Dataset\scene_overview.png'
+pwd = sys.path[0]
+scene_path = os.path.join(pwd, 'pick_snapshot') # pick scene manually
+save_path = os.path.join(pwd, 'scene_overview.png') 
+
 scene=glob(scene_path+'\\*')
 
 row=7

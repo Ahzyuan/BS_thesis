@@ -1,16 +1,17 @@
-import os
+import os,sys
 from tqdm import tqdm
 
-img_dir=r'Dataset\pick_img'
-label_dir=r'Dataset\labels_darklabel'
-save_dir=r'Dataset\labels'
+pwd = sys.path[0]
+img_dir = os.path.join(pwd, 'pick_img')
+label_dir = os.path.join(pwd, 'labels')
+save_dir = label_dir
 
-img_allo='\n'.join(os.listdir(img_dir))
-img_set=set(img_allo.replace('.png','.txt').split('\n'))
+img_allo=os.listdir(img_dir)
+img_set=set([img.replace('.png','.txt') for img in img_allo])
 
 label_set=set(os.listdir(label_dir))
 
-lack_labels=list(img_set-label_set)
+lack_labels=img_set-label_set
 
 for solo_label in tqdm(lack_labels):
     with open(os.path.join(save_dir,solo_label),'w',encoding='utf-8') as empty_writer:

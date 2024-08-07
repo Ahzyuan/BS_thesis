@@ -2,12 +2,12 @@ import numpy as np
 
 class res_reactor():
     def __init__(self) -> None:
-        self.dis_mat=np.array([])   # (3,n), record the dis of TZP per frame
+        self.dis_mat=np.array([])   # (3,n), record the dis of TZP for n frames
 
     def get_v0(self,fps):
         filted_idx=list(map(lambda x:np.where(x<2000)[0], self.dis_mat))
         filted_dis=list(map(lambda x:x[x<2000], self.dis_mat))
-        cls_mul_v0=list(map(lambda valid_dis,valis_idx: np.diff(valid_dis[::-1])*fps/ np.diff(valis_idx)[::-1],\
+        cls_mul_v0=list(map(lambda valid_dis,valis_idx: np.diff(valid_dis[::-1])*(fps*0.5)/ np.diff(valis_idx)[::-1],\
                         filted_dis, filted_idx))
         def determin_v0(v0_list):
             valid_val=v0_list[v0_list>0]

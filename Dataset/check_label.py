@@ -1,10 +1,15 @@
-import os,cv2,shutil
+import os,cv2,sys,shutil
 from glob import glob
 from tqdm import tqdm
 
-img_dir=r'Dataset\pick_img'
-label_dir=r'Dataset\labels_darklabel'
-save_dir=r'E:\AIL\project\Undergraduate_Thesis\Dataset\check_label\label'
+pwd = sys.path[0]
+img_dir = os.path.join(pwd, 'pick_img')
+label_dir = os.path.join(pwd, 'labels')
+label_check_dir = os.path.join(pwd, 'check_label','label')
+img_check_dir = os.path.join(pwd, 'check_label','img')
+assert os.path.exists(img_dir) and os.path.exists(label_dir), 'The path of pick_img or labels is not exist!'
+os.makedirs(label_check_dir, exist_ok=True)
+os.makedirs(img_check_dir, exist_ok=True)
 
 label_list=glob(label_dir+'\\*')
 cls_idx=['T','Z','P']
@@ -58,8 +63,8 @@ for label in tqdm(label_list):
         
         new_objs.append(' '.join([str(cls_id), nor_cenx, nor_ceny, nor_w, nor_h]))
 
-    save_path=os.path.join(save_dir, label_name)
+    save_path=os.path.join(label_check_dir, label_name)
     with open(save_path,'w',encoding='utf-8') as label_writer:
         label_writer.writelines('\n'.join(new_objs))
-    #shutil.copyfile(co_img_path,os.path.join(r'E:\AIL\project\Undergraduate_Thesis\Dataset\check_label\img',label_name.replace('.txt','.png')))
+    shutil.copyfile(co_img_path, os.path.join(img_check_dir, label_name.replace('.txt','.png')))
 

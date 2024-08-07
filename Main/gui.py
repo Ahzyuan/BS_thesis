@@ -18,6 +18,8 @@ from help_functions import get_focus_dis, get_cls_distance, get_light_color,\
 
 windll.shcore.SetProcessDpiAwareness(2)
 
+# 优化数据存储
+
 class TPZ_GUI():
     def __init__(self):
         ## All
@@ -32,19 +34,14 @@ class TPZ_GUI():
         self.compress_grade=tk.IntVar(value=5)
         self.compress_params = [cv2.IMWRITE_PNG_COMPRESSION, self.compress_grade.get()]  # ratio: 0~9, larger for smaller img
         self.flip_cam=tk.IntVar(value=0)
-        self.color_dict={   #the color of the font which shows the obj's distance
-            'R':'#C00000',
-            'G':'#00A44A',
-            'B':'#000000',
-            'Y':'#EEC600'
-        }
+        self.color_dict=gui_info['font_color']
         # Detect-related var
         self.img_size=tk.IntVar(value=608)
         self.conf=tk.Variable(value=0.25)
         self.iou=tk.Variable(value=0.45)
-        self.w_margin=0.072
+        self.w_margin=0.072 # use for classify ignorance objs
         self.zw_margin=0.1  # the margin for zebra crossing
-        self.h_margin=0.013
+        self.h_margin=0.013 # use for classify ignorance objs
         self.cam_id=[]
         #for cam_id in range(100):
         #    _=cv2.VideoCapture(cam_id)
@@ -53,7 +50,7 @@ class TPZ_GUI():
         #    else:
         #        break
         self.cuda_device_num=torch.cuda.device_count()
-        self.if_cpu=tk.IntVar(value=1)
+        self.if_cpu=tk.IntVar(value=1) # default to use cpu for yolo
         self.cuda_var=[tk.IntVar(value=idx+1) for idx in range(self.cuda_device_num)]
         self.weight_path=tk.StringVar(value='')
         self.vt=tk.IntVar(value=30) # km/h
@@ -69,12 +66,12 @@ class TPZ_GUI():
         self.board_row=tk.IntVar(value=5)
         self.board_column=tk.IntVar(value=5)
         # saving-related var
-        self.region_tips_str=tk.StringVar()
+        self.region_tips_str=tk.StringVar() # to show the frame slice
         self.video_save_path=tk.StringVar(value='')
         self.img_save_path=tk.StringVar(value='')
         self.save_size=tk.Variable(value=[1920,1080])
         self.save_fps=tk.IntVar(value=25)
-        self.put_data=tk.IntVar(value=1)
+        self.put_data=tk.IntVar(value=1) # to determine whether to show detected data on img
         # GUI-related var
         self.win_w=tk.IntVar(value=0)
         self.win_h=tk.IntVar(value=0)
@@ -94,7 +91,7 @@ class TPZ_GUI():
 
         self.frame_left =tk.Frame(self.gui)    # height=580, width=970
         self.frame_right=tk.Frame(self.gui)    # height=580, width=310
-        self.frame_sep = tk.Frame(self.gui,width=2, bg='grey')  # height=500
+        self.frame_sep = tk.Frame(self.gui, width=2, bg='grey')  # height=500
         self.frame_left.pack(padx=5, pady=5, side='left')   #grid(padx=5, pady=5,row=0,column=0) #pack(padx=5, pady=5, side='left')
         self.frame_sep.pack(side='left')    #grid(pady=5,row=0,column=1)  #pack(side='left')
         self.frame_right.pack(padx=5, side='left', fill='x',expand=True)   #grid(padx=5, pady=5,row=0,column=2,sticky='nsew') #pack(padx=5, pady=5,side='left')
@@ -120,7 +117,7 @@ class TPZ_GUI():
         self.media_bar.pack(side='left')
         self.bar_info_front.pack(padx=3,side='left')
         self.bar_info_back.pack(side='left')
-        self.bt_close.pack(fill='both',expand=True)
+        self.bt_close.papackck(fill='both',expand=True)
 
         ## Right
         self.fps=tk.Label(self.frame_right, textvariable=self.fps_val, disabledforeground='light grey',state='disable')
@@ -307,7 +304,7 @@ class TPZ_GUI():
             self.P_adp,
             self.Z_adp,
             self.T_B_adp, self.T_R_adp, self.T_G_adp, self.T_Y_adp
-            )=map(lambda x:self.icon_adaptive_size(x),(
+            )=map(self.icon_adaptive_size,(
                 self.P_pil,
                 self.Z_pil,
                 self.T_B_pil, self.T_R_pil, self.T_G_pil, self.T_Y_pil
@@ -317,7 +314,7 @@ class TPZ_GUI():
             self.P_pic,
             self.Z_pic,
             self.T_B_pic, self.T_R_pic, self.T_G_pic, self.T_Y_pic
-            )=map(lambda x:ImageTk.PhotoImage(x),(
+            )=map(ImageTk.PhotoImage,(
                 self.P_adp,
                 self.Z_adp,
                 self.T_B_adp, self.T_R_adp, self.T_G_adp, self.T_Y_adp
@@ -1432,7 +1429,7 @@ class TPZ_GUI():
         set_win.title('软件设置')
         set_win.resizable(False,False)
         set_win.attributes('-topmost', 'true')
-        set_win.attributes('-toolwindow', 'true')
+        set_win.attributes('-toolwindow', 'true') # mini window without icon
         
         def choose_model():
             choose_path=filedialog.askopenfilename(

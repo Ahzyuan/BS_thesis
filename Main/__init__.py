@@ -1,4 +1,4 @@
 import sys
-sys.path.append(r'Main/yolov5')
-sys.path.append(r'Main/yolov5/models')
-sys.path.append(r'Main/yolov5/utils')
+sys.path.append(r'Main/')
+sys.path.append(r'Main/models')
+sys.path.append(r'Main/utils')
