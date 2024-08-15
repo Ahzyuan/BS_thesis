@@ -1,0 +1,93 @@
+# ----------------------------- Inference params -----------------------------
+iou: 0.45
+conf: 0.25
+half: True # fp16 inference
+dnn: False # enable when using onnx model
+batch: 1
+names:
+  0: T
+  1: Z
+  2: P
+
+# ----------------------------- Track params -----------------------------
+## track settings, borrowed from ultralytics.cfg.trackers.botsort
+enable_track: True
+tracker_type: bytetrack # tracker type, ['botsort', 'bytetrack'], default 'bytetrack'
+track_high_thresh: 0.5 # threshold for the first association, only whose confidence is higher than this will be associated
+track_low_thresh: 0.1 # threshold for the second association, only whose confidence is between this and `track_high_thresh` will be associated
+new_track_thresh: 0.6 # threshold for init new track if the detection does not match any tracks
+track_buffer: 30 # buffer to calculate the time when to remove tracks
+match_thresh: 0.8 # threshold for matching tracks with boxes
+
+### BoT-SORT settings
+gmc_method: sparseOptFlow # method of global motion compensation
+### ReID model related thresh (not supported yet)
+proximity_thresh: 0.5 # Threshold for spatial proximity (IoU) between tracks and detections. Used to determine if a detection is close enough to a track to be considered for association.
+appearance_thresh: 0.25 # Threshold for appearance similarity (ReID embeddings) between tracks and detections.
+with_reid: False # must be false, cause not supported yet
+
+# ------------------------------ Detection Analyse params ------------------------------
+det_analyse_settings:
+  h_margin: 0.013
+  w_margin: 0.1
+  box_color: [[151, 46, 240], # Purple: class 0
+              [240, 174, 46], # Orange: class 1
+              [46, 124, 240],  # Blue: class 2
+              [192, 192, 192],  # Grey: Neglect
+              [0, 0, 255]]    # Red: Emergency
+  hsv_color_range:
+    {   
+      'Red1': [[0,43,46], [10,255,255]],    # hsv value:min,max
+      'Red2': [[156,43,46], [180,255,255]],
+      'Green': [[35,43,46], [89,255,255]],
+      'Yellow': [[11,43,46], [34,255,255]]
+    }
+
+  merge_color_depth: True
+  merge_ratio: 0.3
+
+
+win_size: 3 # number of monitored frames when calculating v0
+min_zero2hundred_time: 4 # minimum time for a vehicle to go from 0 to 100 km/h, unit second
+vt: 5 # target low speed, unit km/h
+alert_thres: 0.2 # alert threshold, when the ratio berween brake acceleration and max acceleration is larger than this, alert will be triggered
+
+# ------------------------------ Camera params ------------------------------
+## Note that the `height`, 'width' and 'framerate' are not randomly set, ensure validity in command `realsense-viewer`
+streams: 
+  color:
+    stream_type: "rs.stream.color"
+    width: "848"  # official recommended
+    height: "480" # official recommended
+    format: "rs.format.bgr8"
+    framerate: "30" 
+  depth:
+    stream_type: "rs.stream.depth"
+    width: "848"  # official recommended
+    height: "480" # official recommended
+    format: "rs.format.z16"
+    framerate: "30"
+
+advnc_args: # advanced settings for realsense camera
+  color:
+    enable_auto_white_balance: 1
+    enable_auto_exposure: 1 # not the same with that in depth camera
+    auto_exposure_priority: 0 # turn on will result in FPS drop
+    backlight_compensation: 1
+  depth:
+    enable_auto_exposure: {"enable": 1, "mean_intensity": 1536}
+    visual_preset: 4 # from 0 to 5, stand for 'custom', 'default', 'hand', 'high accuracy', 'high density', 'medium density'
+    emitter_always_on: 1 # Emitter always on mode: 0:disabled(default), 1:enabled
+    hdr_enabled: 0 # turn on may result in frame delay
+
+post_process: # Note: process order following the order defined here
+  color:
+    decimation_filter: {"magnitude": 2.0}
+  depth:
+    decimation_filter: {"magnitude": 2.0}
+    spatial_filter: {"smooth_alpha": 0.5, "smooth_delta": 20.0, "magnitude": 2.0, "hole_fill": 0.0}
+    temporal_filter: {"smooth_alpha": 0.4, "smooth_delta": 20.0, "persistence_control": 3}
+    hole_filling_filter: {"mode": 2}
+
+# ------------------------------ Results saving params ------------------------------
+save_img_format: 'gray' # 'rgb'. When enable `-s` argument, pick the saving mode for img
