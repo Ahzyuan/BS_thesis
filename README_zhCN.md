@@ -72,7 +72,7 @@
 	<font size=2, color=pink>(注：`Jetpack` 限制，只能 3.6.9)</font>
 
 	2. 安装第三方库：`pip install -r requirements.txt`
-	3. 安装 `pyrealsense2`：遵循[链接]([https://blog.csdn.net/Boris_LB/article/details/120750799](https://blog.csdn.net/Boris_LB/article/details/120750799))指示
+	3. 安装 `pyrealsense2`：遵循[链接](https://blog.csdn.net/Boris_LB/article/details/120750799)指示
 	<font size=2, color=pink>
 	
 		(注意：

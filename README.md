@@ -75,7 +75,7 @@ Chinese: [README_zhCN](README_zhCN.md)
 	<font size=2, color=pink>(Note：restricted by `Jetpack`，python version can only be 3.6.9)</font>
 
 	2. Install third-party libraries：`pip install -r requirements.txt`
-	3. Install `pyrealsense2`：according to the instructions in [link]([https://blog.csdn.net/Boris_LB/article/details/120750799](https://blog.csdn.net/Boris_LB/article/details/120750799))
+	3. Install `pyrealsense2`：according to the instructions in [link](https://blog.csdn.net/Boris_LB/article/details/120750799)
 		<font size=2, color=pink>
 
 		(Note：

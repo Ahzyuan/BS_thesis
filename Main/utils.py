@@ -444,7 +444,7 @@ class Frame_Info(Results):
     def compact_data(self): # use for saving
         boxes_num = len(self.boxes)
         if not boxes_num: # no objs detected in this frame
-            return None, None
+            return self.orig_img, np.zeros(shape=(0, 14))
         
         return self.orig_img, np.c_[self.boxes.data, 
                                     self.depth,

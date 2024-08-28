@@ -123,9 +123,8 @@ def save_results(args, res_queue):
         else:   # Frame_Info obj saved as pkl
             save_name = os.path.splitext(os.path.basename(res.path))[0]
             img, meta_data = res.compact_data
-            if meta_data is not None:
-                cv2.imwrite(os.path.join(img_save_path, save_name+'.png'), img if img_saving_mode == 'rgb' else img[...,0])
-                np.save(os.path.join(meta_save_path, save_name+'.npy'), meta_data)
+            cv2.imwrite(os.path.join(img_save_path, save_name+'.png'), img if img_saving_mode == 'rgb' else img[...,0])
+            np.save(os.path.join(meta_save_path, save_name+'.npy'), meta_data)
         
             count += 1 
     
