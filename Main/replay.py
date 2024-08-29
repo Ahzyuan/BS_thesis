@@ -2,6 +2,7 @@ import os,cv2,argparse,yaml,math,sys,shutil
 import numpy as np
 from tqdm import tqdm
 from copy import deepcopy
+from natsort import natsorted
 from collections import deque
 from PIL import Image, ImageDraw, ImageFont, ImageFilter
 
@@ -27,11 +28,12 @@ def draw_box(img, box_data, line_width=None):
     '''
     global args
 
-    x1, y1, x2, y2, cls, box_color_idx, traffic_color = map(int, box_data[:-1])
+    x1, y1, x2, y2, cls, box_color_idx = map(int, box_data[:-2])
 
     cls_name = args.names[cls]
     depth = f'{box_data[-1]:.2f}' if box_data[-1] else None
     box_color = args.box_color[box_color_idx]
+    traffic_color = box_data[-2]
 
     lw = line_width or round(sum(img.shape) / 2 * 0.003)
     tf = max(lw - 1, 1)  # font thickness
@@ -40,7 +42,7 @@ def draw_box(img, box_data, line_width=None):
     cv2.rectangle(img, (x1, y1), (x2, y2), box_color, 2)
     
     if box_color_idx == -1: # emergency object
-        label = f' {cls_name} {depth} m' if cls_name!='T' else f' {cls_name} {chr(traffic_color)} {depth} m'
+        label = f' {cls_name} {depth} m' if cls_name!='T' else f' {cls_name} {traffic_color} {depth} m'
         w, h = cv2.getTextSize(label, 0, fontScale=sf, thickness=tf)[0]  # text width, height
         h += 3  # add pixels to pad text
         
@@ -131,8 +133,8 @@ def put_detect_data(cv_img, detect_data):
     # put text on patch
     loc_up = (margin, margin)
     loc_down = (margin, margin + up_yr-up_yl + line_space)
-    pil_drawing.text(loc_up, log_str_up, align='left',fill=(255, 255, 255), font=ImageFont.truetype("consolai.ttf", text_size), spacing=line_space)
-    pil_drawing.text(loc_down, log_str_down, align='left', fill=T_color, font=ImageFont.truetype("consolai.ttf", text_size))
+    pil_drawing.text(loc_up, log_str_up, align='left',fill=(255, 255, 255), font=ImageFont.truetype(font_file, text_size), spacing=line_space)
+    pil_drawing.text(loc_down, log_str_down, align='left', fill=T_color, font=ImageFont.truetype(font_file, text_size))
     
     patch = cv2.cvtColor(np.asarray(pil_patch), cv2.COLOR_RGB2BGR)
 
@@ -200,6 +202,7 @@ def combine_img_meta(img_path, meta_path):
 
     meta = np.load(meta_path) # [x1, y1, x2, y2, (track_id), conf, cls, box_color_idx, traffic_color, depth, fps, v0, brake_a, if_alert]
 
+    fps = None
     if meta.any():
         # draw boxes
         emergency_info = {}
@@ -209,9 +212,9 @@ def combine_img_meta(img_path, meta_path):
             
             cls_name = args.names[int(cls)]
             depth = depth if depth < 2000 else None
-            traffic_color = chr(int(traffic_color_ascii))
+            traffic_color = chr(int(traffic_color_ascii)) if not np.isnan(traffic_color_ascii) else 'U'
 
-            img = draw_box(img, [x1, y1, x2, y2, cls, box_color_idx, traffic_color_ascii, depth])
+            img = draw_box(img, [x1, y1, x2, y2, cls, box_color_idx, traffic_color, depth])
 
             if box_color_idx == -1: # emergency object
                 emergency_info[cls_name] = [f'{depth:.2f}' if depth else 'None'] + \
@@ -248,7 +251,7 @@ def main(root, save_path):
     img_dir = os.path.join(root, 'img')
     meta_dir = os.path.join(root, 'meta')
 
-    img_files = sorted(os.listdir(img_dir))
+    img_files = natsorted(os.listdir(img_dir))
 
     save_vid = 0
     if save_path:        
@@ -266,18 +269,20 @@ def main(root, save_path):
         img, fps = combine_img_meta(os.path.join(img_dir, img_file), # ndarray
                                                os.path.join(meta_dir, meta_name))
 
-        img_save_path = os.path.join(save_path, img_file)
-        cv2.imwrite(img_save_path, img)
-        if save_vid:
-            frame_ls.append(img_save_path)
-            fps_ls.append(fps)
+        if save_path:
+            img_save_path = os.path.join(save_path, img_file)
+            cv2.imwrite(img_save_path, img)
+            if save_vid:
+                frame_ls.append(img_save_path)
+                if fps:
+                    fps_ls.append(fps)
 
-        frame_interval = int(1000/fps)
+        frame_interval = int(1000/(fps if fps is not None else 10)) 
         cv2.imshow(seq_name, img)
         if cv2.waitKey(frame_interval) & 0xFF == ord('q'):
             break
-    
-    cv2.waitKey(0)
+    else:
+        cv2.waitKey(0)
     cv2.destroyAllWindows()
 
     if save_vid:
@@ -298,7 +303,7 @@ if __name__ == '__main__':
     parser.add_argument('--scale', type=int, default=1, help='scale the image')
     args = parser.parse_args()
     args.res_dir = os.path.abspath(args.res_dir)
-    args.save_path = os.path.abspath(args.save_path)
+    args.save_path = os.path.abspath(args.save_path) if args.save_path else None
     args.config = os.path.abspath(args.config)
     assert os.path.exists(args.res_dir), f"{args.res_dir} not exists"
 

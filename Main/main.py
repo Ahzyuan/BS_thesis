@@ -143,6 +143,10 @@ if __name__ == '__main__':
     parser.add_argument('--show',action='store_true', default=False, help='show frame detection results on screen')
     parser.add_argument('--verbose',action='store_true', default=False, help='print frame detection results in terminal')
     args = parser.parse_args()
+    args.model = os.path.abspath(args.model)
+    args.config = os.path.abspath(args.config)
+    args.input = os.path.abspath(args.input) if not args.input.isnumeric() else args.input
+    args.save_dir = os.path.abspath(args.save_dir) if args.save_dir else ''
     assert os.path.exists(args.model), f'Model file of which path is {args.model} doesn\'t exist'
     assert os.path.exists(args.config), f'Config file of which path is {args.config} doesn\'t exist'
     assert args.config.endswith(('yaml','yml')), f'Config file must be a yaml file, but got {args.config}'

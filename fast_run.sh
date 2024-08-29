@@ -16,9 +16,9 @@ for arg in "$@"
 do
     if [[ $arg == -* ]]
     then
-        echo "> $arg"
+        echo -n -e "\n> $arg"
     else
-        echo "    $arg"
+        echo -e " $arg\n"
     fi
 done
 

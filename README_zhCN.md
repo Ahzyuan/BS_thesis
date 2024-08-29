@@ -26,15 +26,15 @@
 
 1. 硬件条件
 
-    |               `Jetson-TX2`               |         `Intel Realsense D435`          |
-    |:----------------------------------------:|:--------------------------------------:|
-    |             架构：`aarch64`              |        固件版本：`05.13.00.50`         |
-    | 系统：`Linux-Ubuntu 18.04 Bionic Beaver` | 分辨率：`848 × 480 (最大 1920 × 1280)` |
-    |                 内存：8G                 |          帧率：`30 (最大 90)`          |
-    |       显卡：`(8G) NVIDIA Tegra X2`       |      双目相机视场角：`87° × 58°`       |
-    |            `SoC`：`tegra186`             |      双目相机最近测距值：`28 cm`      |
-    |             `L4T`：`32.7.5`              |       RGB相机视场角：`69° × 42°`       |
-    |            `Jetpack`：`4.6.5`            |       RGB相机快门类型：卷帘快门        |
+	|               `Jetson-TX2`               |         `Intel Realsense D435`          |
+	|:----------------------------------------:|:--------------------------------------:|
+	|             架构：`aarch64`              |        固件版本：`05.13.00.50`         |
+	| 系统：`Linux-Ubuntu 18.04 Bionic Beaver` | 分辨率：`848 × 480 (最大 1920 × 1280)` |
+	|                 内存：8G                 |          帧率：`30 (最大 90)`          |
+	|       显卡：`(8G) NVIDIA Tegra X2`       |      双目相机视场角：`87° × 58°`       |
+	|            `SoC`：`tegra186`             |      双目相机最近测距值：`28 cm`      |
+	|             `L4T`：`32.7.5`              |       RGB相机视场角：`69° × 42°`       |
+	|            `Jetpack`：`4.6.5`            |       RGB相机快门类型：卷帘快门        |
 
 2. 软件版本
 	- `CUDA`：`10.2.300`
@@ -72,7 +72,7 @@
 	<font size=2, color=pink>(注：`Jetpack` 限制，只能 3.6.9)</font>
 
 	2. 安装第三方库：`pip install -r requirements.txt`
-	3. 安装 `pyrealsense2`：遵循[链接](https://blog.csdn.net/Boris_LB/article/details/120750799)指示
+	3. 安装 `pyrealsense2`：遵循[链接]([https://blog.csdn.net/Boris_LB/article/details/120750799](https://blog.csdn.net/Boris_LB/article/details/120750799))指示
 	<font size=2, color=pink>
 	
 		(注意：
@@ -112,9 +112,20 @@
 		sed '288 a\             batch, _, *imgsz = bindings["images"].shape' autobackend.py
 		
 		cd ../engine
-		sed '315 a\         self.args.imgsz = self.model.imgsz # update imgsz' predictor.py
-		sed '316 a\         self.args.batch = self.model.batch # update batch' predictor.py
-		sed '317 a\         self.imgsz = self.model.imgsz # update imgsz' predictor.py
+		sed -i '315a\
+				try:
+					self.args.imgsz = self.model.imgsz  # update imgsz
+					self.args.batch = self.model.batch  # update batch
+					self.imgsz = self.model.imgsz  # update imgsz
+				except:
+					try:
+						import re
+						pattern = re.compile('([0-9]+)x([0-9]+)')
+						res = list(map(int, re.findall(pattern, model)[-1]))
+						self.imgsz = getattr(self.args, 'imgsz', res)
+					except:
+						self.imgsz = getattr(self.args, 'imgsz', (384, 640))
+				' predictor.py
 		sed -i '559s/{6, 7}/{6, 7, 8, 9}/' results.py
 
 		# create setup script 
@@ -151,24 +162,24 @@
 	Finish activation
 	
 	Running with args:
-    > -h
+	> -h
 
 	Loading Script in /home/yzq/hzy/DOIC/Main/main.py
 	
 	usage: main.py [-h] [-m MODEL] [-c CONFIG] [-i INPUT] [-s SAVE_DIR] [--show]
-	               [--verbose]
+				   [--verbose]
 	
 	optional arguments:
 	  -h, --help            show this help message and exit
 	  -m MODEL, --model MODEL
-	                        model path
+							model path
 	  -c CONFIG, --config CONFIG
-	                        config file path
+							config file path
 	  -i INPUT, --input INPUT
-	                        input path, can be imgs, videos, directories, URLs or
-	                        int for webcam
+							input path, can be imgs, videos, directories, URLs or
+							int for webcam
 	  -s SAVE_DIR, --save_dir SAVE_DIR
-	                        frame result save path
+							frame result save path
 	  --show                show frame detection results on screen
 	  --verbose             print frame detection results in terminal
 	``` 
@@ -184,7 +195,7 @@
 	# pt -> onnx(simplify)
 	python export.py \ 
 	-p 480s_best.pt \
-	-s yolo8s_sim_288x480.onnx \ 
+	-s yolo8s.onnx \ 
 	-f o \ 
 	--simplify 
 	
@@ -223,19 +234,19 @@
 		```plain-txt
 		.
 		└── 2024-08-14T11-21-13
-		    ├── img
-		    │   ├── image34.png
-		    │   ├── image35.png
-		    │   ├── image36.png
-		    │   ├── image37.png
-		    │   └── ...
-		    ├── meta
-		    │   ├── image34.npy
-		    │   ├── image35.npy
-		    │   ├── image36.npy
-		    │   ├── image37.npy
-		    │   └── ...
-		    └── terminal_output.txt
+			├── img
+			│   ├── image34.png
+			│   ├── image35.png
+			│   ├── image36.png
+			│   ├── image37.png
+			│   └── ...
+			├── meta
+			│   ├── image34.npy
+			│   ├── image35.npy
+			│   ├── image36.npy
+			│   ├── image37.npy
+			│   └── ...
+			└── terminal_output.txt
 		```
 
 ## 📝 许可声明

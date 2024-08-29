@@ -3,4 +3,5 @@
 *.pptx
 *.pyc
 *.mp4
-*.avi
+*.onnx
+*.engine
