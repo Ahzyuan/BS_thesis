@@ -81,13 +81,13 @@ advnc_args: # advanced settings for realsense camera
     hdr_enabled: 0 # turn on may result in frame delay
 
 post_process: # Note: process order following the order defined here
-  color:
-    decimation_filter: {"magnitude": 2.0}
+  # color:
+  #   decimation_filter: {"magnitude": 2.0}
   depth:
-    decimation_filter: {"magnitude": 2.0}
+    #decimation_filter: {"magnitude": 2.0}
     spatial_filter: {"smooth_alpha": 0.5, "smooth_delta": 20.0, "magnitude": 2.0, "hole_fill": 0.0}
     temporal_filter: {"smooth_alpha": 0.4, "smooth_delta": 20.0, "persistence_control": 3}
     hole_filling_filter: {"mode": 2}
 
 # ------------------------------ Results saving params ------------------------------
-save_img_format: 'gray' # 'rgb'. When enable `-s` argument, pick the saving mode for img
+save_img_format: 'rgb' # 'rgb'. When enable `-s` argument, pick the saving mode for img

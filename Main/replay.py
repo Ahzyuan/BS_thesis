@@ -298,8 +298,8 @@ def main(root, save_path):
 if __name__ == '__main__':
     parser = argparse.ArgumentParser()
     parser.add_argument('-d', '--res_dir', type=str, required=True, help='Recored sequence dir')
-    parser.add_argument('-s', '--save_path', type=str, default=None, help='Recored sequence dir')
-    parser.add_argument('-c', '--config', type=str, default='TZP.yaml', help='config file path')
+    parser.add_argument('-s', '--save_path', type=str, default=None, help='Replayed frames saving path, can be a dir to save frames or a mp4 file path to save a video')
+    parser.add_argument('-c', '--config', type=str, default=os.path.join(sys.path[0],'TZP.yaml'), help='config file path')
     parser.add_argument('--scale', type=int, default=1, help='scale the image')
     args = parser.parse_args()
     args.res_dir = os.path.abspath(args.res_dir)

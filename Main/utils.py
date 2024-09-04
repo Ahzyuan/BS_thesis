@@ -36,6 +36,9 @@ class LoadRsCamera():
         self.bs = 1
         self.count = 0
 
+    def __iter__(self):
+        return self
+
     def __len__(self):
         return self.count
     
@@ -143,7 +146,7 @@ class DataSource():
         return len(self.data_iter)
 
     def __iter__(self):
-        return self.data_iter
+        return self.data_iter.__iter__()
 
 class Frame_Info(Results):
     """
@@ -231,7 +234,8 @@ class Frame_Info(Results):
 
         # get depth data
         det = boxes[:,:-2].copy() 
-        self.depth = self.get_box_depth(det, self.depth_img) # unit: meter
+        self.depth = self.get_box_depth(det, self.depth_img) if self.depth_img is not None \
+                     else np.array([2000]*num_boxes) # unit: meter
         
         # filt out neglect boxes
         center_x = (det[:,0]+det[:,2])/2
@@ -378,7 +382,7 @@ class Frame_Info(Results):
         names = self.names
         pred_boxes, show_boxes = self.boxes.data, boxes
         annotator = Annotator(
-            deepcopy(self.cd_merge(img, self.depth_img) if self.if_merge else img),
+            deepcopy(self.cd_merge(img, self.depth_img) if self.if_merge and self.depth_img is not None else img),
             line_width, font_size, font,
             pil,  # Classify tasks default to pil=True
             example=names
@@ -388,9 +392,9 @@ class Frame_Info(Results):
         if len(pred_boxes) != 0 and show_boxes:
             for box_id, box_data in enumerate(pred_boxes):
                 cls_name, depth, box_color_idx = names[int(box_data[-3])], self.depth[box_id], int(box_data[-2])
-                depth = depth if depth < 2000 else None
+                depth = f'{depth:.2f}' if depth < 2000 else 'None'
                 
-                label = (f' {cls_name} {depth:.2f} m' if cls_name!='T' else f' {cls_name} {chr(self.emergent_light_color)} {depth:.2f} m') \
+                label = (f' {cls_name} {depth} m' if cls_name!='T' else f' {cls_name} {chr(self.emergent_light_color)} {depth} m') \
                     if labels and box_color_idx == -1 else None # only show labels for emergency objs
                 box = box_data[:4].squeeze() # xyxy
                 annotator.box_label(box, label, color=self.box_color[box_color_idx])

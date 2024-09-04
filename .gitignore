@@ -1,5 +1,7 @@
 **/.vscode
 **/__pycache__
+Results/**/*.png
+Results/**/*.npy
 *.pptx
 *.pyc
 *.mp4

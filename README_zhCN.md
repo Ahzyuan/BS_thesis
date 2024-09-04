@@ -50,12 +50,14 @@
 	- `onnxruntime`：`1.10.0`
 	- `onnxslim`：`0.1.26`
 3. 项目目录
-	- `Assets`：存放待检测的图片、视频等
+	- `Assets`：存放待检测的图片、视频与运行中需使用的字体文件等
 	- `Dataset`：存放 `TPZ` 数据标签与数据集制作等脚本文件
 	- `Main`：存放项目算法文件
 	- `Results`：存放算法运行输出文件
-	- `Weights`：存放各种格式的权重文件与权重导出、测试脚本
+	- `Weights`：存放各种格式的权重文件、训练脚本与权重导出、测试脚本
 	- `fast_run.sh`：算法便捷运行脚本
+	- `button_run.sh`：算法便携运行脚本（适于开机键短按运行）
+	- `handle-powerbtn.sh`：开机键短按所运行的脚本
 
 ## 🔨 项目部署
 
@@ -72,7 +74,7 @@
 	<font size=2, color=pink>(注：`Jetpack` 限制，只能 3.6.9)</font>
 
 	2. 安装第三方库：`pip install -r requirements.txt`
-	3. 安装 `pyrealsense2`：遵循[链接]([https://blog.csdn.net/Boris_LB/article/details/120750799](https://blog.csdn.net/Boris_LB/article/details/120750799))指示
+	3. 安装 `pyrealsense2`：遵循[链接](https://blog.csdn.net/Boris_LB/article/details/120750799)指示
 	<font size=2, color=pink>
 	
 		(注意：
@@ -149,8 +151,8 @@
 
 	```shell
 	# pwd: <any-where>/DOIC
-	# 注：替换下方的<DOIC_dir>为项目所在的绝对路径
-	echo alias doic="bash -i <DOIC_dir>/fast_run.sh" >> ~/.bashrc
+
+	echo alias doic="bash -i <any-where>/DOIC/fast_run.sh" >> ~/.bashrc
 	source ~/.bashrc
 	sudo chmod +x fast_run.sh
 	```
@@ -186,7 +188,48 @@
 
 ## 💡 项目使用
 
-1. 模型转换
+1. 模型训练：
+
+	> 以 `imgsz=480`，在二次标注的 `D2City` 与 `D435` 实拍图像的混合数据集上训练的权重已提供，见 [best_d2city_d435.pt](Weights/best_d2city_d435.pt)。
+	> 
+	> 若想重新训练，或更改数据集，请遵循下述步骤：
+
+	```shell
+	# pwd: <any-where>/DOIC
+	# conda activate doic
+
+	# ---------------------- 构建数据集 ----------------------
+	cd Dataset
+	# 对原视频按标签进行分帧
+	python framing.py -i <视频路径> -l <标注文件所在文件夹> -s <分帧存储文件夹>
+	# 随机划分数据集，默认二八划分
+	python yolo_dataset_generator.py -i <分帧存储文件夹> -l <标注文件所在文件夹> -s <数据集存储路径>
+
+	# -------------------- 准备预训练权重 --------------------
+	cd ../Weights
+	wget https://bgithub.xyz/ultralytics/assets/releases/download/v8.2.0/yolov8s.pt
+
+	# ------------------------- 训练 ----------------------
+	python train_da.py \
+	-w yolov8s.pt \
+	-t <目标域数据集存储路径>/TPZ.yaml \
+	-s <源域数据集存储路径>/TPZ.yaml \
+	--imgsz 480 \
+	--batch 16 \
+	--enable_da \ # 启用域适应
+	--enable_train \ # 启用训练
+	--val \ # 逐轮测试
+	--plots \
+	--profile
+	```
+	
+	> 训练脚本 [train_da.py](Weights/train_da.py) 可用于普通训练或域适应训练
+	> 
+	> 当传入参数 `--enable_da` 时使用基于 `GRL(Gradient Reverse Layer)` 的域适应训练，否则为普通训练。
+	> 
+	> 当使用域适应训练时，请确保源域数据域目标域数据不同，否则其效果与普通训练无异。
+
+2. 模型转换：将 `pt` 模型转换为 `onnx` 模型，并进一步转换为 `tensorrt` 模型
 
 	```shell
 	# pwd: <any-where>/DOIC
@@ -223,13 +266,19 @@
 
 3. `Jetson-TX2` 连接 `Realsense-435` 双目相机与扬声器
 4. 配置文件设置：设置 `DOIC/Main/TPZ.yaml` 文件内容，各项含义已注释
-3. 运行算法：根据上一节 `doic -h` 的输出，算法共接受以下6个运行参数
+3. 运行算法：
+
+	```shell
+	doic -m <tensorrt模型路径> -i 0 --show --verbose
+	```
+
+	参数说明：根据上一节 `doic -h` 的输出，算法共接受以下6个运行参数
 	- `--verbose`：帧处理信息实时显示在终端
 	- `--show`：帧处理画面实时显示在屏幕
 	- `-m` / `--model`：`tensorrt` 模型路径
 	- `-c` / `--config`：配置文件路径
 	- `-i` / `--input`：输入文件路径，接受图片、视频、包含图片与视频的文件夹以及整数输入。其中，**传入整数则接收索引为指定整数的摄像机输入。**
-	- `-s` / `--save_dir`：帧处理信息保存路径，默认为空，表示不保存帧处理信息。若指定路径，则将在指定目录按程序启动时间创建文件夹，并建立 `img` 与 `meta` 两个子文件夹，分别存储帧图像及其处理信息；同时，终端输出信息会记录至 `terminal_output.txt` 文件。一个目录树示例如下：
+	- `-s` / `--save_dir`：帧处理信息保存路径，默认为空，表示不保存帧处理信息。若指定路径，则将在指定目录按程序启动时间创建文件夹，并建立 `img` 与 `meta` 两个子文件夹，分别存储帧图像及其处理信息；若启用了 `verbose` 参数，则终端输出信息会记录至 `terminal_output.txt` 文件。一个输出文件夹的目录树示例如下：
 
 		```plain-txt
 		.
@@ -248,6 +297,42 @@
 			│   └── ...
 			└── terminal_output.txt
 		```
+
+## 🚀 进阶使用——使用开机键控制程序启停
+
+> 如果你希望程序可以在**任意场所离线运行**，那么这应该是你所需要的
+
+1. 配置 `acpid`，以监控开机键短按事件
+
+	```shell
+	# pwd: <any-where>/DOIC
+
+	sudo apt-get update
+	sudo apt-get install acpid
+
+	sudo chmod +x handle-powerbtn.sh
+
+	cat >/etc/acpi/events/powerbtn<< EOF
+	event=button/power PBTN 00000080 00000000
+	action=<any-where>/DOIC/handle-powerbtn.sh
+	EOF
+
+	sudo systemctl restart acpid
+	```
+
+2. 配置开机短按代码的快捷运行命令
+
+	```shell
+	# pwd: <any-where>/DOIC
+	
+	echo alias doic_button="bash -i <any-where>/DOIC/button_run.sh" >> ~/.bashrc
+	source ~/.bashrc
+	sudo chmod +x button_run.sh
+	```
+
+3. 终端执行 `doic_button -m <tensorrt模型路径> -s <输出保存路径>`，参数设置与 `doic` 完全相同，但 `-s` 参数必需。
+4. 带离设备
+5. 当设备发出一声蜂鸣后，短按开机键即可启动程序，再次短按开机键即可结束程序
 
 ## 📝 许可声明
 

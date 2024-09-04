@@ -14,8 +14,7 @@ from model import Yolo8_Detracker
 from utils import DataSource, LoadRsCamera
 
 # todo:
-# 1. add video/img depth support
-# 2. save & reload frame metadata
+# 1. multi-thread for alert
 
 def update_args(args):
     config = yaml_load(args.config) # dict
@@ -41,8 +40,6 @@ def terminate_handle(sig, frame,
 
 def main(args, terminator, res_queue=None):
     try:
-        args = update_args(args) 
-
         datas = DataSource(args)
         args.if_track = getattr(args, "enable_track", \
                 False if os.path.exists(args.input) and datas.data_iter.nf == datas.data_iter.ni else True) # 0 for only imgs
@@ -122,6 +119,9 @@ def save_results(args, res_queue):
             infos.append(res+'\n')
         else:   # Frame_Info obj saved as pkl
             save_name = os.path.splitext(os.path.basename(res.path))[0]
+            if not args.input.isnumeric():
+                save_name = f'{save_name}_{count}'
+
             img, meta_data = res.compact_data
             cv2.imwrite(os.path.join(img_save_path, save_name+'.png'), img if img_saving_mode == 'rgb' else img[...,0])
             np.save(os.path.join(meta_save_path, save_name+'.npy'), meta_data)
@@ -135,9 +135,11 @@ def save_results(args, res_queue):
     print(f'Capture {count} frames in total.')
 
 if __name__ == '__main__':
+    os.system('play --no-show-progress --null --channels 1 synth 0.1 sine 2000')
+
     parser = argparse.ArgumentParser()
     parser.add_argument('-m','--model', type=str, default='../Weights/yolo8s_half_sim_288x480.engine', help='model path')
-    parser.add_argument('-c','--config',type=str, default='TZP.yaml', help='config file path')
+    parser.add_argument('-c','--config',type=str, default=os.path.join(sys.path[0],'TZP.yaml'), help='config file path')
     parser.add_argument('-i','--input',type=str, default='0', help='input path, can be imgs, videos, directories, URLs or int for webcam')
     parser.add_argument('-s','--save_dir',type=str, default='', help='frame result save path')
     parser.add_argument('--show',action='store_true', default=False, help='show frame detection results on screen')
@@ -151,6 +153,8 @@ if __name__ == '__main__':
     assert os.path.exists(args.config), f'Config file of which path is {args.config} doesn\'t exist'
     assert args.config.endswith(('yaml','yml')), f'Config file must be a yaml file, but got {args.config}'
     
+    args = update_args(args)
+
     if args.save_dir:
         run_time = str(time.strftime('%Y-%m-%dT%H-%M-%S', time.localtime()))
         args.save_dir = os.path.join(args.save_dir, run_time)

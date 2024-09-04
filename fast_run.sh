@@ -14,16 +14,21 @@ echo ""
 echo "Running with args:"
 for arg in "$@"
 do
-    if [[ $arg == -* ]]
+    if [[ $arg =~ ^-- ]]
     then
-        echo -n -e "\n> $arg"
+        echo -e "> $arg"
+
+    elif [[ $arg =~ ^- ]]
+    then
+        echo -n -e "> $arg"
+
     else
-        echo -e " $arg\n"
+        echo -e " $arg"
     fi
 done
 
 echo ""
-echo "Loading Script in /home/yzq/hzy/DOIC/Main/main.py"
+echo "Loading Script: /home/yzq/hzy/DOIC/Main/main.py"
 echo -e "\033[0m"
 
 python main.py "$@"
