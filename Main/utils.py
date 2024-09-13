@@ -12,10 +12,14 @@ class LoadRsCamera():
         assert hasattr(args, "streams"), f"Please specify `streams` in {args.config}"
         
         self.config = rs.config()
+        self.enable_depth = False
+
         # enable stream defined in yaml file
         for stream_name, stream_args in args.streams.items():
             stream_args = {key: eval(value) for key, value in stream_args.items()}
             self.config.enable_stream(**stream_args)
+            if stream_name == "depth":
+                self.enable_depth = True
         
         self.pipeline = rs.pipeline()
         self.profile = self.pipeline.start(self.config)
@@ -24,7 +28,12 @@ class LoadRsCamera():
         self.device_name = device_metadata.get_info(rs.camera_info.name)
         self.depth_sensor,self.color_sensor = device_metadata.query_sensors()
         self.depth_unit = self.depth_sensor.get_option(rs.option.depth_units) # Number of meters represented by a single depth unit
-        
+        cs_intrimat_meta = self.profile.get_stream(rs.stream.color).as_video_stream_profile().get_intrinsics()
+        args.cs_intrimat = np.array([[cs_intrimat_meta.fx, 0, cs_intrimat_meta.ppx],        # fx, 0, u0
+                                     [0, cs_intrimat_meta.fy, cs_intrimat_meta.ppy],        #  0, fy,v0
+                                     [cs_intrimat_meta.height, cs_intrimat_meta.width, 1]]) #  h, w, 1
+        args.enable_depth = self.enable_depth
+
         self.filters = {}
         if hasattr(args, "advnc_args"):
             self.advance_tune(args.advnc_args)
@@ -60,23 +69,23 @@ class LoadRsCamera():
         state = True
         
         # align depth img to color img
-        aligned_frames = self.align.process(raw_frame)
+        aligned_frames = self.align.process(raw_frame) if self.enable_depth else raw_frame
         color_part = aligned_frames.get_color_frame()
         depth_part = aligned_frames.get_depth_frame()
 
-        if not color_part or not depth_part:
+        if not color_part or (not depth_part and self.enable_depth):
             state = False
             return state, None
 
         # post process
         if 'color' in self.filters:
             color_part = self.apply_filters_ls(color_part, self.filters['color'])
-        if 'depth' in self.filters:
+        if 'depth' in self.filters and self.enable_depth:
             depth_part = self.apply_filters_ls(depth_part, self.filters['depth'])
         
         color_frame = np.asanyarray(color_part.get_data())
-        depth_frame = np.asanyarray(depth_part.get_data())
-        depth_frame = depth_frame * self.depth_unit # mm -> m
+        depth_frame = np.asanyarray(depth_part.get_data()) if depth_part else None
+        depth_frame = depth_frame * self.depth_unit  if depth_frame is not None else None # mm -> m
 
         return state, color_frame, depth_frame
 
@@ -205,6 +214,15 @@ class Frame_Info(Results):
                                     'Green': ([35,43,46], [89,255,255]),
                                     'Yellow': ([11,43,46], [34,255,255])}
         
+        # get monocular vision ranging related info defined in yaml file
+        self.camera2ground = settings.get("camera2ground", 1.3)
+        self.camera2front = settings.get("camera2front", 1.8)
+        self.standard_light_width = settings.get("standard_light_width", 0.35)
+        self.standard_human_height = settings.get("standard_human_height", 1.64)
+        self.intri_mat = settings["intri_mat"] if depth_img is None else None # depth image first
+        self.calibrated_frame_height = (self.intri_mat[2,0] if self.intri_mat is not None else None) \
+                                        or settings.get("calibrated_frame_height", 1080)
+
         frame_h, frame_w = self.orig_shape
         h_margin = settings.get("h_margin", 0.013)
         w_margin = settings.get("w_margin", 0.1)
@@ -234,8 +252,6 @@ class Frame_Info(Results):
 
         # get depth data
         det = boxes[:,:-2].copy() 
-        self.depth = self.get_box_depth(det, self.depth_img) if self.depth_img is not None \
-                     else np.array([2000]*num_boxes) # unit: meter
         
         # filt out neglect boxes
         center_x = (det[:,0]+det[:,2])/2
@@ -246,22 +262,29 @@ class Frame_Info(Results):
         # filt out emergency box
         frame_cls = set(det[:,-1])
         emergency_idx = []
-        if 2000 in self.depth: # depth data invalid, filt by box loc 
-            for cls in frame_cls:
-                # pick the lowest box for people and zebra-crossing, but highest for traffic light
-                pick_func = min if self.names[cls] == "T" else max 
-                cls_idx = np.where(det[:,-1] == cls)[0]
-                emergency_idx.append(pick_func(cls_idx, key=lambda x: det[x,3]))
-        else: # depth data valid, filt by depth
-            ascending_dis_idx = self.depth.argsort()
-            for idx in ascending_dis_idx:
-                if idx in grey_objs_idx: continue
-                if len(frame_cls) == 0: break
-                box_cls = det[idx,-1] 
-                if box_cls in frame_cls:
-                    emergency_idx.append(idx)
-                    frame_cls.remove(box_cls)
+        for cls in frame_cls:
+            # pick the lowest box for people and zebra-crossing, but highest for traffic light
+            pick_func = min if self.names[cls] == "T" else max 
+            cls_idx = np.where(det[:,-1] == cls)[0]
+            emergency_idx.append(pick_func(cls_idx, key=lambda x: det[x,3]))
+        # if 2000 in self.depth: # depth data invalid, filt by box loc 
+        #     for cls in frame_cls:
+        #         # pick the lowest box for people and zebra-crossing, but highest for traffic light
+        #         pick_func = min if self.names[cls] == "T" else max 
+        #         cls_idx = np.where(det[:,-1] == cls)[0]
+        #         emergency_idx.append(pick_func(cls_idx, key=lambda x: det[x,3]))
+        # else: # depth data valid, filt by depth
+        #     ascending_dis_idx = self.depth.argsort()
+        #     for idx in ascending_dis_idx:
+        #         if idx in grey_objs_idx: continue
+        #         if len(frame_cls) == 0: break
+        #         box_cls = det[idx,-1] 
+        #         if box_cls in frame_cls:
+        #             emergency_idx.append(idx)
+        #             frame_cls.remove(box_cls)
         boxes[emergency_idx, -2] = -1 # set box color to red idx, which means this box is emergency
+
+        self.depth = self.get_box_depth(det, emergency_idx, self.intri_mat, self.depth_img) # unit: meter
 
         # fill color and traffic light color information for each box
         for idx, box_data in enumerate(boxes):
@@ -279,25 +302,56 @@ class Frame_Info(Results):
         # update boxes data
         self.update(boxes=boxes)
 
-    def get_box_depth(self, preds, depth_img):
+    def get_box_depth(self, preds, emergency_idx, intri_mat=None, depth_img=None):
         '''
-        Return the average depth value of 3 points on the box's centerline as final depth value
+        Return the each box's depth as a vector
 
         preds: tensor, (num_boxes,6), column meanings are [x1, y1, x2, y2, confidence, class]
-        depth_imgs: ndarray, (H,W). Depth data(unit m)
+        intri_mat: ndarray(3,3). Intrinsic matrix of camera, [[fx,0,u0],
+                                                              [0,fy,v0],
+                                                              [h,w,1]]
+        depth_imgs: ndarray(H,W) or None. Depth data(unit m) captured by realsense camera
         '''
-        x1, y1, x2, y2 = preds[:,:4].T.astype(np.uint8) # x*,y* are vectors with shape (num_boxes,)
-        x1 = np.clip(x1, 0, depth_img.shape[1]-1)
-        x2 = np.clip(x2, 0, depth_img.shape[1]-1)
-        y1 = np.clip(y1, 0, depth_img.shape[0]-1)
-        y2 = np.clip(y2, 0, depth_img.shape[0]-1)
+        x1, y1, x2, y2 = preds[:,:4].T.astype(np.int16) # x*,y* are vectors with shape (num_boxes,)
+        x1 = np.clip(x1, 0, self.orig_shape[1]-1)
+        x2 = np.clip(x2, 0, self.orig_shape[1]-1)
+        y1 = np.clip(y1, 0, self.orig_shape[0]-1)
+        y2 = np.clip(y2, 0, self.orig_shape[0]-1)
         
-        top_points = y1, (x1+x2)//2
-        mid_points = (y1+y2)//2, (x1+x2)//2
-        buttom_points = y2, (x1+x2)//2
+        if depth_img is not None: # for depth camera
+            top_points = y1, (x1+x2)//2
+            mid_points = (y1+y2)//2, (x1+x2)//2
+            buttom_points = y2, (x1+x2)//2
+            
+            depth_vals = np.c_[depth_img[top_points], depth_img[mid_points], depth_img[buttom_points]]
+            depth_vals = np.mean(depth_vals, axis=1)
         
-        depth_vals = np.c_[depth_img[top_points], depth_img[mid_points], depth_img[buttom_points]]
-        return np.mean(depth_vals, axis=1)
+        elif intri_mat is not None: # Monocular vision ranging
+            fy,v0 = intri_mat[1, 1:]
+            frame_h = self.orig_shape[0]
+
+            box_width = x2-x1
+            box_height = y2-y1
+            depth_vals = np.full_like(preds[:, -1], 2000, dtype=np.float32)
+            for box_idx, box_cls in enumerate(preds[:, -1]):
+                if box_idx not in emergency_idx:
+                    continue
+                if self.names[box_cls] == "T": # traffic light
+                    criterion = min(box_width[box_idx], box_height[box_idx]) * self.calibrated_frame_height / frame_h # use the shortest edge to calculate dis
+                    depth_vals[box_idx] = max(fy * self.standard_light_width / criterion - self.camera2front, 0.1) 
+                
+                elif self.names[box_cls] == "P": # person
+                    criterion = box_height[box_idx] * self.calibrated_frame_height / frame_h # use the height of person to calculate dis
+                    depth_vals[box_idx] = max(fy * self.standard_human_height / criterion - self.camera2front, 0.1) # unit meter, default person height is 1.64m
+            
+                else: # zebra crossing
+                    depth_vals[box_idx] = max(0.1, fy * self.camera2ground / (abs(y2[box_idx] - frame_h // 2) * self.calibrated_frame_height / frame_h) - self.camera2front) # unit meter
+            depth_vals *= 0.5 # 0.5 is the empirical scale
+        
+        else:
+            depth_vals = np.array([2000]*len(preds))
+
+        return depth_vals
 
     def get_light_color(self, roi:np.ndarray):
         '''

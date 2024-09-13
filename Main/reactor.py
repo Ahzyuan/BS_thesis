@@ -54,7 +54,7 @@ class Reactor():
                 brake_a = 0 # unit: m/s^2
             
             self.frame_v0.append(v0)
-            if_alert = self.alert(brake_a)
+            if_alert, *beep_info = self.alert(brake_a) # beep_info: (duration, frequency)
             
             # discard the very first frame's data
             key_ls = list(self.frame_dis.keys())
@@ -66,9 +66,10 @@ class Reactor():
         else:
             v0, brake_a = np.nan, 0
             if_alert = False
+            beep_info = None
             self.record_idx += 1 # while not reach win_size, just keep storing the frame data
-        
-        return v0*3.6, brake_a, if_alert  # unit: km/h, m/s^2
+
+        return v0*3.6, brake_a, if_alert, beep_info  # unit: v0(km/h), brake_a(m/s^2), beep_info: (duration(second), frequency(Hz))
 
     def get_v0(self, dis_mat):
 
@@ -91,7 +92,9 @@ class Reactor():
             v0 = v0 if a <= self.max_a else last_frame_v0+self.max_a*self.frame_fps[-1]*(v0-last_frame_v0)
             v0 = max(0,v0)
 
-        return v0 # unit: m/s
+        v0 = 7.7-42*v0 if v0*420 > 7 else v0*420 # unit: km/h
+
+        return v0 # unit: m/s, 60 is empirical scale
             
     def get_brake_a(self, track_dis, v0, vt, light_color):
         '''
@@ -133,8 +136,8 @@ class Reactor():
     def alert(self, brake_a):
         degree = brake_a/self.max_a
         if_alert = degree > self.alert_thres 
-        if if_alert:
-            duration = max(5/self.frame_fps[-1], 0.1) # second
-            frequency = int(880 * (1 + degree)) # Hz
-            os.system(f'play --no-show-progress --null --channels 1 synth {duration:.2f} sine {frequency}') # sudo apt install sox
-        return if_alert
+
+        duration = max(5/self.frame_fps[-1], 0.1) if if_alert else 0 # second
+        frequency = int(880 * (1 + degree)) if if_alert else 0 # Hz
+        #os.system(f'play --no-show-progress --null --channels 1 synth {duration:.2f} sine {frequency}') # sudo apt install sox
+        return if_alert, duration, frequency

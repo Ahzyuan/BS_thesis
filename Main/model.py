@@ -1,4 +1,5 @@
 import os, torch
+import numpy as np
 from ultralytics.utils import ops
 from ultralytics.trackers.bot_sort import BOTSORT
 from ultralytics.engine.predictor import BasePredictor
@@ -81,7 +82,10 @@ class Yolo8_Detracker(BasePredictor): # yolov8 detector or tracker
 
         args.batch = self.args.batch # update batch size according to model args
         self.camera_flag = 1 if args.input.isnumeric() else 0 # used to receive depth information
+        self.enable_depth= getattr(args, "enable_depth", False)
         self.det_analyse_settings = getattr(args, "det_analyse_settings", dict())
+        self.det_analyse_settings["intri_mat"] = np.asanyarray(getattr(args, "cs_intrimat", \
+                                                               self.det_analyse_settings.get("intri_mat", None))) # update intri_mat with realsense camera built-in value
 
         self.callback = Track_Callback(args, self, persist=True) if args.if_track else Callback_Base()
     
@@ -110,7 +114,7 @@ class Yolo8_Detracker(BasePredictor): # yolov8 detector or tracker
                                        preds,  
                                        im, 
                                        imgs, 
-                                       depth_imgs=depth_imgs if self.camera_flag else None)
+                                       depth_imgs=depth_imgs if self.camera_flag and self.enable_depth else None)
             self.callback.on_predict_postprocess_end(im0s=imgs, # update tracker
                                                      results=results) 
         

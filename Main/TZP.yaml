@@ -28,8 +28,17 @@ with_reid: False # must be false, cause not supported yet
 
 # ------------------------------ Detection Analyse params ------------------------------
 det_analyse_settings:
+  calibrated_frame_height: 480 # unit pixel, the frame height of the calibrated image when using monocular vision ranging
+  camera2ground: 1 # meter, the distance that camera to the ground
+  camera2front: 0.4 # meter, the distance that camera to the front of the car
+  standard_light_width: 0.35 # meter, the standard width of traffic light
+  standard_human_height: 1.64 # meter, the standard height of human
+  intri_mat: [[609.192, 0, 425.376],
+              [0, 608.155, 243.593],
+              [480, 848, 1]] # intrinsic matrix of the camera
+
   h_margin: 0.013
-  w_margin: 0.1
+  w_margin: 0.2
   box_color: [[151, 46, 240], # Purple: class 0
               [240, 174, 46], # Orange: class 1
               [46, 124, 240],  # Blue: class 2
@@ -48,7 +57,7 @@ det_analyse_settings:
 
 
 win_size: 3 # number of monitored frames when calculating v0
-min_zero2hundred_time: 4 # minimum time for a vehicle to go from 0 to 100 km/h, unit second
+min_zero2hundred_time: 20 # minimum time for a vehicle to go from 0 to 100 km/h, unit second
 vt: 5 # target low speed, unit km/h
 alert_thres: 0.2 # alert threshold, when the ratio berween brake acceleration and max acceleration is larger than this, alert will be triggered
 
@@ -81,10 +90,10 @@ advnc_args: # advanced settings for realsense camera
     hdr_enabled: 0 # turn on may result in frame delay
 
 post_process: # Note: process order following the order defined here
-  # color:
-  #   decimation_filter: {"magnitude": 2.0}
+  color:
+    decimation_filter: {"magnitude": 2.0}
   depth:
-    #decimation_filter: {"magnitude": 2.0}
+    decimation_filter: {"magnitude": 2.0}
     spatial_filter: {"smooth_alpha": 0.5, "smooth_delta": 20.0, "magnitude": 2.0, "hole_fill": 0.0}
     temporal_filter: {"smooth_alpha": 0.4, "smooth_delta": 20.0, "persistence_control": 3}
     hole_filling_filter: {"mode": 2}

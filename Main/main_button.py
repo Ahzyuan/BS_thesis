@@ -20,23 +20,24 @@ def update_args(args):
     return args
 
 def terminate_handle(sig, frame, 
-                     producer_thread, consumer_thread, 
-                     q, terminator):
+                     producer_thread, consumer_threads, 
+                     queues, terminator):
     print('\nSignal received, waiting for the completion of current batch ...')
     
     terminator.set()
 
     producer_thread.join() # waiting for yolo8 model to finish the last batch
     
-    if q is not None:
-        q.put("EOP") # send end-of-process signal to consumer thread
-        consumer_thread.join()
+    if queues is not None:
+        for queue,thread in zip(queues,consumer_threads):
+            queue.put("EOP") # send end-of-process signal to consumer thread
+            thread.join()
     
     print('Exiting.')
     sys.exit(0)
 
-def main(args, terminator, res_queue=None):
-    try: 
+def main(args, terminator, res_queue=None, alert_queue=None):
+    try:
         datas = DataSource(args)
         args.if_track = getattr(args, "enable_track", \
                 False if os.path.exists(args.input) and datas.data_iter.nf == datas.data_iter.ni else True) # 0 for only imgs
@@ -59,11 +60,14 @@ def main(args, terminator, res_queue=None):
                 res_id = 0
                 for res in model(path_bs, img_bs):  # batch_res is a list of Frame_Info objs
                     frame_emergent_data = res.emergency_info # ndarray, (num_boxes, 4), [cls, track_id, light_color, depth]
-                    v0, brake_a, if_alert = reactor.update(frame_emergent_data, res.fps) # unit: km/h, m/s^2
+                    v0, brake_a, if_alert, beep_info = reactor.update(frame_emergent_data, res.fps) # unit: km/h, m/s^2
                     
                     res.v0 = v0 # unit: km/h
                     res.brake_a = brake_a
                     res.if_alert = if_alert
+
+                    if alert_queue is not None:
+                        alert_queue.put(beep_info)
 
                     if res_queue is not None:
                         res_queue.put(res)
@@ -96,6 +100,17 @@ def main(args, terminator, res_queue=None):
         # for v in self.vid_writer.values():
         #     if isinstance(v, cv2.VideoWriter):
         #         v.release()
+
+def alert(alert_queue):
+    while True:
+        beep_info = alert_queue.get()
+        if beep_info == 'EOP': # end of process
+            break
+
+        if beep_info:
+            duration, frequency = beep_info
+            if duration*frequency != 0:
+                os.system(f'play --no-show-progress --null --channels 1 synth {duration} sine {frequency}')
 
 def save_results(args, res_queue):
     count = 0
@@ -163,13 +178,17 @@ if __name__ == '__main__':
         os.makedirs(args.save_dir, exist_ok=True)
         
     res_queue = Queue() if args.save_dir else None
+    alert_queue = Queue()
     terminator = Event()
 
-    main_thread = Thread(target=main, args=(args, terminator, res_queue))
+    main_thread = Thread(target=main, args=(args, terminator, res_queue, alert_queue))
     save_thread = Thread(target=save_results, args=(args, res_queue)) if args.save_dir else None
+    alert_thread = Thread(target=alert, args=(alert_queue,))
     signal(SIGINT, partial(terminate_handle,  # capture KILL (Ctrl+C) signal and stop the program
-                           producer_thread=main_thread, consumer_thread=save_thread,
-                           q=res_queue, terminator=terminator))
+                           producer_thread=main_thread, 
+                           consumer_threads=[save_thread,alert_thread] if args.save_dir else [alert_thread],
+                           queues=[res_queue,alert_queue] if args.save_dir else [alert_queue], # seqence should be the same as consumer_threads
+                           terminator=terminator))
     
     rich.print(Panel(Text("Press Ctrl+C to stop the program!", justify="center", style='bold green italic'), 
                      title="Note",
@@ -177,10 +196,12 @@ if __name__ == '__main__':
                      border_style='green'))
 
     main_thread.start()
+    alert_thread.start()
     if args.save_dir:
         save_thread.start()
 
     main_thread.join()
+    alert_thread.join()
     if args.save_dir:
         save_thread.join()
 

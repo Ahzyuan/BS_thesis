@@ -270,7 +270,10 @@ Chinese: [README_zhCN](README_zhCN.md)
 
 3. `Jetson-TX2` connects `Realsense-435` binocular camera and speaker.
 4. Configuration file settings: Set the content of the `DOIC/Main/TPZ.yaml` file, each meaning has been commented.
-3. Start running: 
+
+	> Note: If you want to enbale monocular visual ranging, please comment out all items with key `depth` in the configuration file.
+
+5. Start running: 
 
 	```shell
 	doic -m <tensorrt model path> -i 0 --show --verbose

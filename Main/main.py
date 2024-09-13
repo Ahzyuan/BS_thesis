@@ -1,4 +1,4 @@
-import os,argparse,sys,traceback,time
+import os,argparse,sys,traceback,time,subprocess
 import rich,cv2
 import numpy as np
 from queue import Queue
@@ -13,9 +13,6 @@ from reactor import Reactor
 from model import Yolo8_Detracker
 from utils import DataSource, LoadRsCamera
 
-# todo:
-# 1. multi-thread for alert
-
 def update_args(args):
     config = yaml_load(args.config) # dict
     for key, value in config.items():
@@ -23,22 +20,23 @@ def update_args(args):
     return args
 
 def terminate_handle(sig, frame, 
-                     producer_thread, consumer_thread, 
-                     q, terminator):
+                     producer_thread, consumer_threads, 
+                     queues, terminator):
     print('\nSignal received, waiting for the completion of current batch ...')
     
     terminator.set()
 
     producer_thread.join() # waiting for yolo8 model to finish the last batch
     
-    if q is not None:
-        q.put("EOP") # send end-of-process signal to consumer thread
-        consumer_thread.join()
+    for queue,thread in zip(queues,consumer_threads):
+        if queues is not None:
+            queue.put("EOP") # send end-of-process signal to consumer thread
+            thread.join()
     
     print('Exiting.')
     sys.exit(0)
 
-def main(args, terminator, res_queue=None):
+def main(args, terminator, res_queue=None, alert_queue=None):
     try:
         datas = DataSource(args)
         args.if_track = getattr(args, "enable_track", \
@@ -57,31 +55,31 @@ def main(args, terminator, res_queue=None):
             
             for path_bs, img_bs, info_bs in datas: # *_bs are list with a len of args.batch
                 if terminator.is_set(): # terminate the program when encounter KeyBoardInterrupt
-                        break
+                    break
                 
-                res_id = 0
-                for res in model(path_bs, img_bs):  # batch_res is a list of Frame_Info objs
+                for res_id, res in enumerate(model(path_bs, img_bs)):  # batch_res is a list of Frame_Info objs
                     frame_emergent_data = res.emergency_info # ndarray, (num_boxes, 4), [cls, track_id, light_color, depth]
-                    v0, brake_a, if_alert = reactor.update(frame_emergent_data, res.fps) # unit: km/h, m/s^2
+                    v0, brake_a, if_alert, beep_info = reactor.update(frame_emergent_data, res.fps) # unit: km/h, m/s^2
                     
                     res.v0 = v0 # unit: km/h
                     res.brake_a = brake_a
                     res.if_alert = if_alert
 
+                    if alert_queue is not None:
+                        alert_queue.put(beep_info)
+
                     if res_queue is not None:
                         res_queue.put(res)
                     
                     if args.verbose:
-                        info = [info_bs[res_id], res.verbose()]
-                        rich.print(f"[bold][blue]{info[0]}[/blue][green]{info[1]}[/green][/bold]")
+                        info = [info_bs[res_id], res.verbose(), ' ⚠' if if_alert else '']
+                        rich.print(f"[bold][blue]{info[0]}[/blue][green]{info[1]}[/green][red]{info[2]}[/red][/bold]")
                         if res_queue is not None:
-                            res_queue.put(''.join(info))
+                            res_queue.put(''.join(info).strip())
                     
                     if args.show:
                         res.plot(show=True)
                     
-                    res_id += 1
-
     except:
         print(traceback.format_exc())
     
@@ -91,8 +89,9 @@ def main(args, terminator, res_queue=None):
         if isinstance(datas.data_iter,LoadRsCamera):
             datas.data_iter.pipeline.stop()
                 
-        if res_queue is not None:
-            res_queue.put('EOP') # end of process
+        for queue in (alert_queue, res_queue):
+            if queue is not None:
+                queue.put('EOP') # end of process
         
         for _ in range(2): # ring twice meaning program ends
                 os.system('play --no-show-progress --null --channels 1 synth 0.1 sine 1000')
@@ -100,9 +99,20 @@ def main(args, terminator, res_queue=None):
         #     if isinstance(v, cv2.VideoWriter):
         #         v.release()
 
+def alert(alert_queue):
+    if_speaker = subprocess.getoutput("aplay -l | grep -i usb") # check if speaker is connected
+    while True:
+        beep_info = alert_queue.get() # (duration, frequency) or None or 'EOP'
+        if beep_info == 'EOP': # end of process
+            break
+
+        if beep_info is not None and if_speaker:
+            duration, frequency = beep_info
+            if duration*frequency != 0:
+                os.system(f'play --no-show-progress --null --channels 1 synth {duration} sine {frequency}')
+
 def save_results(args, res_queue):
     count = 0
-    infos = []
     img_save_path = os.path.join(args.save_dir, 'img')
     meta_save_path = os.path.join(args.save_dir, 'meta')
     os.makedirs(img_save_path, exist_ok=True)
@@ -110,28 +120,25 @@ def save_results(args, res_queue):
 
     img_saving_mode = getattr(args, "save_img_format", 'gray').lower()
 
-    while True:
-        res = res_queue.get()
-        if res == 'EOP': # end of process
-            break
-        
-        if isinstance(res, str): # info
-            infos.append(res+'\n')
-        else:   # Frame_Info obj saved as pkl
-            save_name = os.path.splitext(os.path.basename(res.path))[0]
-            if not args.input.isnumeric():
-                save_name = f'{save_name}_{count}'
-
-            img, meta_data = res.compact_data
-            cv2.imwrite(os.path.join(img_save_path, save_name+'.png'), img if img_saving_mode == 'rgb' else img[...,0])
-            np.save(os.path.join(meta_save_path, save_name+'.npy'), meta_data)
-        
-            count += 1 
-    
-    if infos:
-        with open(os.path.join(args.save_dir, 'terminal_output.txt'), 'w') as info_writer:
-            info_writer.writelines(infos)
+    with open(os.path.join(args.save_dir, 'terminal_output.txt'), 'w') as info_writer:
+        while True:
+            res = res_queue.get()
+            if res == 'EOP': # end of process
+                break
             
+            if isinstance(res, str): # info
+                info_writer.write(res+'\n')
+            else:   # Frame_Info obj saved as pkl
+                save_name = os.path.splitext(os.path.basename(res.path))[0]
+                if not args.input.isnumeric():
+                    save_name = f'{save_name}_{count}'
+
+                img, meta_data = res.compact_data
+                cv2.imwrite(os.path.join(img_save_path, save_name+'.png'), img if img_saving_mode == 'rgb' else img[...,0])
+                np.save(os.path.join(meta_save_path, save_name+'.npy'), meta_data)
+            
+                count += 1 
+                
     print(f'Capture {count} frames in total.')
 
 if __name__ == '__main__':
@@ -161,13 +168,17 @@ if __name__ == '__main__':
         os.makedirs(args.save_dir, exist_ok=True)
         
     res_queue = Queue() if args.save_dir else None
+    alert_queue = Queue()
     terminator = Event()
 
-    main_thread = Thread(target=main, args=(args, terminator, res_queue))
+    main_thread = Thread(target=main, args=(args, terminator, res_queue, alert_queue))
     save_thread = Thread(target=save_results, args=(args, res_queue)) if args.save_dir else None
+    alert_thread = Thread(target=alert, args=(alert_queue,))
     signal(SIGINT, partial(terminate_handle,  # capture KILL (Ctrl+C) signal and stop the program
-                           producer_thread=main_thread, consumer_thread=save_thread,
-                           q=res_queue, terminator=terminator))
+                           producer_thread=main_thread, 
+                           consumer_threads=[save_thread,alert_thread] if args.save_dir else [alert_thread],
+                           queues=[res_queue,alert_queue] if args.save_dir else [alert_queue], # seqence should be the same as consumer_threads
+                           terminator=terminator))
     
     rich.print(Panel(Text("Press Ctrl+C to stop the program!", justify="center", style='bold green italic'), 
                      title="Note",
@@ -175,10 +186,12 @@ if __name__ == '__main__':
                      border_style='green'))
 
     main_thread.start()
+    alert_thread.start()
     if args.save_dir:
         save_thread.start()
 
     main_thread.join()
+    alert_thread.join()
     if args.save_dir:
         save_thread.join()
 

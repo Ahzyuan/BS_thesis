@@ -287,7 +287,7 @@ def main(root, save_path):
 
     if save_vid:
         fourcc = cv2.VideoWriter_fourcc(*'mp4v')
-        fps = round(sum(fps_ls) / len(fps_ls))
+        fps = 11 # round(sum(fps_ls) / len(fps_ls))
         vid = cv2.VideoWriter(save_path+'.mp4', fourcc, fps, (img.shape[1], img.shape[0]))
         for frame in tqdm(frame_ls, desc='Saving video'):
             vid.write(cv2.imread(frame))
