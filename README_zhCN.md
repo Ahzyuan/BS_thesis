@@ -4,8 +4,13 @@
 
 [![Static Badge](https://img.shields.io/badge/Ultralytics-YOLOv8.2-purple)](https://github.com/ultralytics/ultralytics) ![Static Badge](https://img.shields.io/badge/TensorRT-JetsonTX2-green?logo=nvidia&color=76B900&link=https%3A%2F%2Fdeveloper.nvidia.cn%2Ftensorrt&link=https%3A%2F%2Fdeveloper.nvidia.com%2Fembedded%2Fjetson-tx2) ![Static Badge](https://img.shields.io/badge/Intel-RealSense--D435-lightcyan?logo=intel&color=F4F4F4&link=https%3A%2F%2Fwww.intelrealsense.com%2Fdepth-camera-d435%2F)
 
----
-英文版：[README](README.md)
+> 英文版：[README](README.md)
+
+<div align="center">
+
+![](Assets/architecture.svg)
+
+</div>
 
 ## 😀 项目介绍
 
